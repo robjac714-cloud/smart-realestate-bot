@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Smart Real Estate Bot</title>
+  <style>
+    body{font-family:system-ui; background:#f6f7fb; margin:0; padding:18px}
+    .wrap{max-width:980px;margin:auto;display:grid;gap:14px;grid-template-columns:1.3fr 1fr}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 10px 25px rgba(15,23,42,.06)}
+    .head{padding:12px 14px;border-bottom:1px solid #eef2ff;font-weight:700}
+    .chat{height:520px;overflow:auto;padding:12px 14px}
+    .msg{margin:10px 0;display:flex}
+    .b{max-width:85%;padding:10px 12px;border-radius:14px;line-height:1.6}
+    .me{justify-content:flex-start}
+    .me .b{background:#eef2ff}
+    .bot{justify-content:flex-end}
+    .bot .b{background:#f1f5f9}
+    .bar{display:flex;gap:10px;padding:12px 14px;border-top:1px solid #eef2ff}
+    input{flex:1;padding:10px 12px;border-radius:12px;border:1px solid #e5e7eb;font-size:15px}
+    button{padding:10px 14px;border:0;border-radius:12px;background:#111827;color:#fff;font-weight:700;cursor:pointer}
+    textarea{width:100%;height:520px;border:0;outline:0;padding:12px 14px;border-radius:16px;resize:none}
+    .small{color:#64748b;font-size:13px;padding:0 14px 12px}
+    @media (max-width: 900px){.wrap{grid-template-columns:1fr}.chat,textarea{height:420px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">الشات</div>
+      <div id="chat" class="chat"></div>
+      <div class="bar">
+        <input id="inp" placeholder="اكتب طلبك: مثال (شقة غرفتين بدبي مارينا بميزانية 1.5 مليون)" />
+        <button id="send">إرسال</button>
+      </div>
+      <div class="small">ملاحظة: يتم استخراج المتطلبات تلقائياً وتحديث الملخص على اليمين.</div>
+    </div>
+
+    <div class="card">
+      <div class="head">ملخص طلب المستخدم (جاهز للإرسال)</div>
+      <textarea id="summary" readonly></textarea>
+    </div>
+  </div>
+
+<script>
+  // ضع رابط الـ API الخاص بك بعد ما تنشر على Vercel
+  const API_URL = "/api/chat"; // إذا نفس الدومين. أو: https://YOUR-VERCEL-DOMAIN.vercel.app/api/chat
+
+  const chatEl = document.getElementById("chat");
+  const inp = document.getElementById("inp");
+  const sendBtn = document.getElementById("send");
+  const summaryEl = document.getElementById("summary");
+
+  const history = [];
+
+  function addMsg(text, who="me"){
+    const row = document.createElement("div");
+    row.className = "msg " + (who==="me" ? "me":"bot");
+    const b = document.createElement("div");
+    b.className = "b";
+    b.textContent = text;
+    row.appendChild(b);
+    chatEl.appendChild(row);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  async function send(){
+    const msg = inp.value.trim();
+    if(!msg) return;
+    inp.value = "";
+    addMsg(msg, "me");
+    history.push({role:"user", content: msg});
+
+    sendBtn.disabled = true;
+    try{
+      const r = await fetch(API_URL, {
+        method:"POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ message: msg, history })
+      });
+      const data = await r.json();
+      if(!r.ok) throw new Error(data?.error || "API error");
+
+      addMsg(data.assistant_message, "bot");
+      history.push({role:"assistant", content: data.assistant_message});
+
+      summaryEl.value = data.lead_summary || "";
+    }catch(e){
+      addMsg("صار خطأ تقني. جرّب مرة ثانية.", "bot");
+      console.error(e);
+    }finally{
+      sendBtn.disabled = false;
+    }
+  }
+
+  sendBtn.addEventListener("click", send);
+  inp.addEventListener("keydown", (e)=>{ if(e.key==="Enter") send(); });
+
+  // رسالة ترحيب
+  addMsg("أهلاً! قلّي شو العقار اللي بتدور عليه (مدينة/منطقة/ميزانية/عدد غرف) وبساعدك.", "bot");
+</script>
+</body>
+</html>
